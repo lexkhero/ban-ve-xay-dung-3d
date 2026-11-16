@@ -44,9 +44,12 @@
     slab:   { name: 'San',    color: [0.62, 0.62, 0.60, 1.0], dxfLayer: '3D_SAN', aci: 8 },
     column: { name: 'Cot',    color: [0.80, 0.74, 0.68, 1.0], dxfLayer: '3D_COT', aci: 30 },
     roof:   { name: 'Mai',    color: [0.62, 0.30, 0.22, 1.0], dxfLayer: '3D_MAI', aci: 12 },
-    stair:  { name: 'CauThang', color: [0.78, 0.74, 0.68, 1.0], dxfLayer: '3D_CAUTHANG', aci: 33 }
+    stair:  { name: 'CauThang', color: [0.78, 0.74, 0.68, 1.0], dxfLayer: '3D_CAUTHANG', aci: 33 },
+    frame:  { name: 'KhungCua', color: [0.20, 0.21, 0.23, 1.0], dxfLayer: '3D_KHUNGCUA', aci: 250 },
+    door:   { name: 'CanhCua', color: [0.52, 0.35, 0.22, 1.0], dxfLayer: '3D_CANHCUA', aci: 32 },
+    rail:   { name: 'LanCan', color: [0.25, 0.26, 0.28, 1.0], dxfLayer: '3D_LANCAN', aci: 251 }
   };
-  var GROUP_ORDER = ['wall', 'glass', 'slab', 'column', 'stair', 'roof'];
+  var GROUP_ORDER = ['wall', 'slab', 'column', 'stair', 'roof', 'frame', 'door', 'rail', 'glass'];
 
   /* ------------------------------------------------------------------ */
   /* Tiện ích                                                            */
@@ -910,6 +913,7 @@
       if (!g.idx.length) return;
       groups.push({ key: k, name: MATERIALS[k].name, color: MATERIALS[k].color, pos: g.pos, nor: g.nor, idx: g.idx });
       tris += g.idx.length / 3;
+      if (k === 'frame' || k === 'door' || k === 'rail' || k === 'glass') return; // chi tiết cửa không tính vào kích thước phủ bì
       for (var i = 0; i < g.pos.length; i += 3) {
         for (var a = 0; a < 3; a++) { if (g.pos[i + a] < mn[a]) mn[a] = g.pos[i + a]; if (g.pos[i + a] > mx[a]) mx[a] = g.pos[i + a]; }
       }
@@ -926,13 +930,62 @@
     return [pt(s0, p0), pt(s1, p0), pt(s1, p1), pt(s0, p1)];
   }
 
-  function emitRect(G, r, z0, z1, cfg) {
+  // Khung và cánh cửa đi: 1 cánh (khe <= 1,3 m), 2 cánh, hoặc 4 cánh kính (khe > 2,6 m)
+  function emitDoorDetail(G, r, s0, s1, za, zb, cfg) {
+    var w = s1 - s0, fw = Math.min(0.05, w / 6), fd = Math.min(r.t + 0.02, 0.14) / 2, lt = 0.02;
+    if (w < 0.4 || zb - za < 0.6) return;
+    addPrism(G.frame, rectPoly(r, s0, s0 + fw, -fd, fd), za, zb);
+    addPrism(G.frame, rectPoly(r, s1 - fw, s1, -fd, fd), za, zb);
+    addPrism(G.frame, rectPoly(r, s0 + fw, s1 - fw, -fd, fd), zb - fw, zb);
+    var n = w <= 1.3 ? 1 : w <= 2.6 ? 2 : 4, a = s0 + fw, b = s1 - fw, lw = (b - a) / n, glassDoor = n === 4 && cfg.glass;
+    for (var i = 0; i < n; i++) {
+      var l0 = a + i * lw + 0.004, l1 = a + (i + 1) * lw - 0.004;
+      if (glassDoor) { // cánh khung nhôm kính
+        var st = 0.06;
+        addPrism(G.frame, rectPoly(r, l0, l0 + st, -lt, lt), za, zb - fw);
+        addPrism(G.frame, rectPoly(r, l1 - st, l1, -lt, lt), za, zb - fw);
+        addPrism(G.frame, rectPoly(r, l0 + st, l1 - st, -lt, lt), za, za + 0.1);
+        addPrism(G.frame, rectPoly(r, l0 + st, l1 - st, -lt, lt), zb - fw - st, zb - fw);
+        addPrism(G.glass, rectPoly(r, l0 + st, l1 - st, -0.006, 0.006), za + 0.1, zb - fw - st);
+      } else {
+        addPrism(G.door, rectPoly(r, l0, l1, -lt, lt), za + 0.01, zb - fw - 0.004);
+        // tay nắm
+        var hs = (n === 1 || i % 2 === 0) ? l1 - 0.09 : l0 + 0.05;
+        if (n === 1) hs = l1 - 0.09;
+        addPrism(G.frame, rectPoly(r, hs, hs + 0.04, -lt - 0.03, lt + 0.03), za + 1.0, za + 1.04);
+      }
+    }
+  }
+  // Khung, đố và kính cửa sổ
+  function emitWindowDetail(G, r, s0, s1, za, zb, cfg) {
+    var w = s1 - s0, h = zb - za, fw = Math.min(0.05, w / 6, h / 6), fd = Math.min(r.t, 0.1) / 2;
+    if (w < 0.25 || h < 0.25) return false;
+    addPrism(G.frame, rectPoly(r, s0, s0 + fw, -fd, fd), za, zb);
+    addPrism(G.frame, rectPoly(r, s1 - fw, s1, -fd, fd), za, zb);
+    addPrism(G.frame, rectPoly(r, s0 + fw, s1 - fw, -fd, fd), za, za + fw);
+    addPrism(G.frame, rectPoly(r, s0 + fw, s1 - fw, -fd, fd), zb - fw, zb);
+    var n = Math.max(1, Math.round(w / 0.75)), a = s0 + fw, b = s1 - fw, pw = (b - a) / n, mw = 0.02;
+    for (var i = 1; i < n; i++) addPrism(G.frame, rectPoly(r, a + i * pw - mw, a + i * pw + mw, -fd * 0.7, fd * 0.7), za + fw, zb - fw);
+    var zt = zb - fw;
+    if (h > 1.9) { zt = za + h * 0.72; addPrism(G.frame, rectPoly(r, a, b, -fd * 0.7, fd * 0.7), zt - mw, zt + mw); } // đố ngang cho cửa cao
+    if (cfg.glass) addPrism(G.glass, rectPoly(r, a, b, -0.006, 0.006), za + fw, zb - fw);
+    // bệ cửa sổ nhô ra hai mặt tường
+    if (za > 0.15) addPrism(G.frame, rectPoly(r, s0 - 0.03, s1 + 0.03, -r.t / 2 - 0.03, r.t / 2 + 0.03), za - 0.03, za);
+    return true;
+  }
+
+  // info (không bắt buộc): { items: [], solids: [], li: số thứ tự tầng } để ghi danh mục cấu kiện cho việc xem kích thước và đi bộ
+  function emitRect(G, r, z0, z1, cfg, info) {
     if (r.fence) z1 = Math.min(z1, z0 + cfg.fenceH);
     var H = z1 - z0, ops = (r.ops || []).slice().sort(function (a, b) { return a.s0 - b.s0; });
-    var cursor = 0, h = r.t / 2;
+    var cursor = 0, h = r.t / 2, detail = cfg.detail !== false && !r.fence;
     function solid(s0, s1, za, zb) {
-      if (s1 - s0 > 0.005 && zb - za > 0.005) addPrism(G.wall, rectPoly(r, s0, s1, -h, h), z0 + za, z0 + zb);
+      if (s1 - s0 > 0.005 && zb - za > 0.005) {
+        addPrism(G.wall, rectPoly(r, s0, s1, -h, h), z0 + za, z0 + zb);
+        if (info && za < 1.0 && zb > 0.4) info.solids.push([r.x, r.y, r.ux, r.uy, s0, s1, r.t]);
+      }
     }
+    if (info && !r.inferred) info.items.push({ type: r.fence ? 'fence' : 'wall', li: info.li, x: r.x, y: r.y, ux: r.ux, uy: r.uy, len: r.len, t: r.t, z0: z0, z1: z1 });
     ops.forEach(function (o) {
       var s0 = Math.max(o.s0, cursor), s1 = o.s1;
       if (s1 - s0 < 0.05) return;
@@ -942,9 +995,20 @@
       bottom = Math.max(0, Math.min(bottom, H)); top = Math.max(bottom, Math.min(top, H));
       solid(s0, s1, 0, bottom);
       solid(s0, s1, top, H);
-      if (o.kind === 'window' && cfg.glass && top - bottom > 0.02) {
-        var gt = Math.min(r.t, 0.05) / 2;
-        addPrism(G.glass, rectPoly(r, s0, s1, -gt, gt), z0 + bottom, z0 + top);
+      if (top - bottom > 0.02) {
+        var done = false;
+        if (detail && o.kind === 'window') done = emitWindowDetail(G, r, s0, s1, z0 + bottom, z0 + top, cfg);
+        if (detail && o.kind === 'door') emitDoorDetail(G, r, s0, s1, z0 + bottom, z0 + top, cfg);
+        if (!done && o.kind === 'window' && cfg.glass) {
+          var gt = Math.min(r.t, 0.05) / 2;
+          addPrism(G.glass, rectPoly(r, s0, s1, -gt, gt), z0 + bottom, z0 + top);
+        }
+        if (info) {
+          var sm = (s0 + s1) / 2;
+          info.items.push({ type: o.kind, li: info.li, x: r.x + r.ux * sm, y: r.y + r.uy * sm, ux: r.ux, uy: r.uy, w: s1 - s0, t: r.t,
+            z0: z0 + bottom, z1: z0 + top, sill: bottom, h: top - bottom, floorZ: z0, tag: o.tag || '', fence: !!r.fence,
+            hSrc: o.top !== undefined ? 'tag' : 'default', wSrc: 'plan' });
+        }
       }
       cursor = s1;
     });
@@ -990,6 +1054,20 @@
       if (tg.kind === 'window' && tg.top === undefined && tg.sill !== undefined && tg.h) tg.top = tg.sill + tg.h;
     });
     return tags;
+  }
+  // Tên phòng ghi trên mặt bằng: "PHÒNG KHÁCH 33m2", "P. NGỦ CON 14.8m2", "WC 1", "THỀM", "BẾP"...
+  var ROOM_AREA_RE = /^(.{2,32}?)\s*[-:]?\s*(\d+(?:[.,]\d+)?)\s*m\s?[2²]$/i;
+  var ROOM_NAME_RE = /^(PH[ÒO]NG|P\.|WC|B[ẾE]P|TH[ỀE]M|S[ẢA]NH|KHO|GARA|GA RA|BAN C[ÔO]NG|S[ÂA]N |S[ÂA]N$|LOGIA|L[ÔO] GIA|H[ÀA]NH LANG|GI[ẢA]I TR[ÍI]|TI[ỀE]N S[ẢA]NH|V[ỆE] SINH|T[ẮA]M|TH[ỜO])/i;
+  function readRooms(texts) {
+    var out = [];
+    texts.forEach(function (t) {
+      var s = String(t.text).replace(/\s+/g, ' ').trim(), m;
+      if (s.length < 2 || s.length > 40 || /M[ẶA]T B[ẰA]NG|CHI TI[ẾE]T|M[ẶA]T C[ẮA]T|M[ẶA]T [ĐD][ỨU]NG|GHI CH[ÚU]|K[ÝY] HI[ỆE]U|C[ỬU]A/i.test(s)) return;
+      if ((m = ROOM_AREA_RE.exec(s))) out.push({ name: m[1].trim(), area: parseFloat(m[2].replace(',', '.')), x: t.x, y: t.y });
+      else if (ROOM_NAME_RE.test(s) && !/\d{3,}/.test(s)) out.push({ name: s, x: t.x, y: t.y });
+    });
+    // bỏ nhãn trùng (cùng tên, cách nhau < 1 m)
+    return out.filter(function (a, i) { return !out.some(function (b, j) { return j < i && b.name === a.name && Math.hypot(a.x - b.x, a.y - b.y) < 1; }); });
   }
   function nearestTag(tags, x, y, r, used) {
     var best = null, bd = r;
@@ -1111,6 +1189,7 @@
         addPrism(G.stair, [[bb[0], bb[1]], [bb[2], bb[1]], [bb[2], bb[3]], [bb[0], bb[3]]], zt - 0.15, zt);
       }
     });
+    return { steps: R, rise: h, going: st.path[0].f.step, width: st.path[0].f.L };
   }
 
   /* ------------------------------------------------------------------ */
@@ -1311,7 +1390,8 @@
     var door = 0, win = 0, lostBoxes = [];
     clusterOpenings(dEnts).forEach(function (bb) { if (assignOpening(rects, bb, 'door')) door++; else lostBoxes.push(bb); });
     clusterOpenings(wEnts).forEach(function (bb) { if (assignOpening(rects, bb, 'window')) win++; else lostBoxes.push(bb); });
-    var tags = readTags((texts || []).map(function (t) { return { text: t.text, x: t.x * f, y: t.y * f }; }));
+    var textsM = (texts || []).map(function (t) { return { text: t.text, x: t.x * f, y: t.y * f }; });
+    var tags = readTags(textsM), rooms = isRoof ? [] : readRooms(textsM);
     var inf = { door: 0, window: 0, open: 0, list: [] };
     if (cfg.inferOpenings && cfg.mode !== 'center') inf = inferOpenings(rects, evid, colBoxes, cfg, tags);
     var tagged = applyTags(rects, tags);
@@ -1350,7 +1430,7 @@
     }
     main.forEach(function (r) { rectPoly(r, 0, r.len, -r.t / 2, r.t / 2).forEach(function (p) { hullPts.push(p); }); });
     return {
-      rects: rects, colBoxes: colBoxes, overlay: overlay, hullPts: hullPts, openings: inf.list,
+      rects: rects, colBoxes: colBoxes, overlay: overlay, hullPts: hullPts, openings: inf.list, rooms: rooms,
       roofFaces: roofFaces, flights: flights, bubbles: bubbles,
       // chỉ giữ đa giác cột nằm trong một khối cột đủ lớn (bỏ các mẩu tô vụn)
       cols: cols.filter(function (c) {
@@ -1407,6 +1487,7 @@
     L.overlay.forEach(function (o) { o.pts.forEach(sp); });
     L.hullPts.forEach(sp);
     L.openings.forEach(function (o) { o.x += dx; o.y += dy; });
+    (L.rooms || []).forEach(function (o) { o.x += dx; o.y += dy; });
     (L.roofFaces || []).forEach(function (fc) { fc.forEach(sp); });
     (L.bubbles || []).forEach(sp);
     (L.flights || []).forEach(function (fl) { fl.o0 += dx * fl.nx + dy * fl.ny; fl.o1 += dx * fl.nx + dy * fl.ny; fl.sc += dx * fl.ux + dy * fl.uy; });
@@ -1470,7 +1551,7 @@
       if (!preps[roofIdx].roofFaces.length) warn.push('Mặt bằng mái không có vùng tô lớp Mái; mái được dựng theo bao tường tầng trên cùng, chìa ra ' + cfg.overhang + ' m.');
     }
 
-    var G = newGroups(), overlay = [];
+    var G = newGroups(), overlay = [], items = [], solids = preps.map(function () { return []; });
     var hulls = preps.map(function (L) { return L.hullPts.length >= 3 ? convexHull(L.hullPts) : null; });
     var stats = { tagged: 0, flights: 0, stairs: 0, fences: 0, fenceWalls: 0, walls: 0, doors: 0, windows: 0, openGaps: 0, openingsUnmatched: 0, columns: 0, slabs: 0 };
     var prevEnd = null, holes = [];
@@ -1494,7 +1575,7 @@
         var top = zt;
         if (underRoof) top = clipTop([[r.x, r.y], [r.x + r.ux * r.len, r.y + r.uy * r.len], [r.x + r.ux * r.len / 2, r.y + r.uy * r.len / 2]]);
         if (top - zb < 0.3) return;
-        emitRect(G, r, zb, top, cfg);
+        emitRect(G, r, zb, top, cfg, { items: items, solids: solids[li], li: li });
       });
       L.cols.forEach(function (c) {
         var top = clipTop(c);
@@ -1502,13 +1583,17 @@
           var b = bboxOf(c);
           if (!inConvex(hulls[0], (b[0] + b[2]) / 2, (b[1] + b[3]) / 2, 0.3)) top = Math.min(top, zb + cfg.fenceH);
         }
-        if (top - zb >= 0.3) addPrism(G.column, c, zb, top);
+        if (top - zb >= 0.3) {
+          addPrism(G.column, c, zb, top);
+          items.push({ type: 'column', li: li, box: bboxOf(c), z0: zb, z1: top });
+        }
       });
       // Cầu thang lên tầng trên
       var levelHoles = [];
       if (li + 1 < n && kinds[li + 1] !== 'roof' && L.flights.length) {
         stairsFrom(L.flights, prevEnd).forEach(function (st) {
-          emitStair(G, st, zb, z0[li + 1]);
+          var si = emitStair(G, st, zb, z0[li + 1]);
+          items.push({ type: 'stair', li: li, box: st.box, z0: zb, z1: z0[li + 1], steps: si.steps, rise: si.rise, going: si.going, width: si.width });
           stats.stairs++;
           prevEnd = st.end;
           var bb = st.box;
@@ -1531,7 +1616,11 @@
     var uniqWarn = warn.filter(function (w, idx) { return warn.indexOf(w) === idx; });
     return finalize(G, {
       overlay: overlay, shift: [cx, cy], rects: preps[0].rects,
-      levels: preps.map(function (L, li) { return { stats: L.stats, align: align[li], z0: z0[li], height: heights[li], kind: kinds[li], openings: L.openings }; }),
+      levels: preps.map(function (L, li) {
+        return { stats: L.stats, align: align[li], z0: z0[li], height: heights[li], kind: kinds[li], openings: L.openings,
+          rooms: L.rooms || [], solids: solids[li], hull: hulls[li], given: given };
+      }),
+      items: items, slabT: cfg.slabT, defaults: { doorH: cfg.doorH, winSill: cfg.winSill, winH: cfg.winH },
       roof: rm ? { eaveZ: rm.eaveZ, ridgeZ: rm.ridgeZ, faces: rm.faces.length } : null,
       stats: stats, warnings: uniqWarn
     });

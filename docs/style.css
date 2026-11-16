@@ -138,7 +138,43 @@ input[type="text"] {
 .viewer { position: relative; min-width: 0; min-height: 320px; background: var(--view); }
 .stage { position: absolute; inset: 0; }
 .stage canvas { display: block; width: 100%; height: 100%; }
-.toolbar { position: absolute; top: 12px; left: 12px; display: flex; gap: 6px; }
+.toolbar { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; pointer-events: none; }
+.toolbar > *, .navbar > * { pointer-events: auto; }
+.navbar { display: contents; }
+.navbar[hidden] { display: none; }
+.toolbar button[aria-pressed="true"] { background: var(--accent, #1f6feb); color: #fff; border-color: transparent; }
+.toolbar .accent { font-weight: 650; }
+.tgl { display: inline-flex; align-items: center; gap: 5px; height: 33px; padding: 0 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.tgl input { margin: 0; }
+.labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.lbl { position: absolute; left: 0; top: 0; white-space: pre; text-align: center; font-size: 11px; line-height: 1.25; padding: 1px 5px; border-radius: 4px;
+  font-variant-numeric: tabular-nums; background: rgba(255,255,255,0.88); color: #1b232c; border: 1px solid rgba(0,0,0,0.18); will-change: transform; }
+.lbl.sel { background: #ff3d00; color: #fff; border-color: transparent; font-weight: 650; font-size: 12px; z-index: 3; }
+.lbl.measure { background: #00813f; color: #fff; border-color: transparent; font-weight: 650; font-size: 12px; z-index: 3; }
+.lbl.dim.door { border-color: #e07a1f; } .lbl.dim.window { border-color: #1e88e5; }
+.lbl.occ { opacity: 0.32; }
+.lbl.room { background: rgba(20,28,36,0.72); color: #fff; border-color: transparent; font-weight: 600; }
+.navhint { position: absolute; left: 12px; top: 92px; margin: 0; max-width: min(560px, calc(100% - 300px)); font-size: 12px; color: var(--muted);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; pointer-events: none; opacity: 0.92; }
+.info { position: absolute; top: 96px; right: 12px; width: 268px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.14); }
+.info-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.info-title strong { font-size: 15px; }
+.info-title button { border: 0; background: none; font-size: 18px; line-height: 1; padding: 2px 6px; cursor: pointer; color: var(--muted); }
+.info dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; }
+.info dt { color: var(--muted); } .info dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.info-note { margin: 8px 0 0; font-size: 12px; color: var(--muted); line-height: 1.4; }
+.walkhud, .pad { display: none; }
+.walking .walkhud { display: block; position: absolute; right: 12px; bottom: 12px; width: 230px; }
+.walking .info { top: 96px; }
+.floorbox { display: flex; gap: 4px; margin-bottom: 6px; }
+.floorbox select { flex: 1; min-width: 0; height: 33px; background: var(--panel); }
+.floorbox button { background: var(--panel); padding: 4px 10px; }
+.minimap { display: block; width: 230px; height: 230px; border: 1px solid var(--line); border-radius: 8px; cursor: crosshair; touch-action: none; box-shadow: 0 4px 16px rgba(0,0,0,0.14); }
+.walking .pad { display: grid; grid-template-columns: repeat(3, 44px); gap: 4px; position: absolute; left: 12px; bottom: 12px; }
+.pad button { height: 40px; background: var(--panel); padding: 0; font-size: 15px; touch-action: none; user-select: none; }
+.walking .stats, .walking .cutbox, .walking [data-view], .walking #btn-measure { display: none; }
+.walking .stage canvas { cursor: grab; }
 .toolbar button { background: var(--panel); }
 .toolbar select { height: 33px; background: var(--panel); width: auto; max-width: 300px; }
 .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -156,6 +192,9 @@ input[type="text"] {
 @media (max-width: 860px) {
   .layout { grid-template-columns: 1fr; grid-template-rows: minmax(340px, 52vh) auto; overflow-y: auto; }
   .viewer { order: -1; }
+  .navhint { display: none; }
+  .walking .walkhud { width: 150px; } .minimap { width: 150px; height: 150px; }
+  .info { width: 220px; }
   .panel { border-right: 0; border-top: 1px solid var(--line); overflow: visible; }
   body { height: auto; min-height: 100%; }
 }

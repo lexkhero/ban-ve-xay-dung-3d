@@ -55,6 +55,14 @@ Bật **Hiện nét bản vẽ 2D** để đối chiếu: các ô cửa tự nh�
 ## Ảnh
 - **Ảnh scan, PDF scan**: chỉ dựng khối tường thô theo vùng đen đậm, không có cửa. Nhập chiều rộng thật của ảnh để đúng tỉ lệ.
 
+## Xem và tương tác trên mô hình 3D
+
+- **Xem kích thước:** bấm vào cửa, tường, cột, cầu thang, sàn hoặc mái. Bảng bên phải ghi rộng, cao, bệ cửa, cao độ; cấu kiện được viền đỏ kèm nhãn kích thước. Bảng cũng ghi rõ chiều cao lấy từ ký hiệu trên bản vẽ (D1, S4...) hay là giá trị mặc định ở mục 4.
+- **Kích thước cửa:** tick ô này để hiện nhãn `rộng×cao` (mm) trên mọi cửa. Dấu `*` là chiều cao mặc định, bản vẽ không ghi.
+- **Đo khoảng cách:** bấm nút rồi bấm hai điểm; điểm tự bắt vào góc gần nhất. Esc để thôi.
+- **Đi bộ trong nhà:** bấm nút, hoặc nhấp đúp vào sàn, hoặc chọn phòng ở danh sách "Vào phòng…" (tên phòng đọc từ chữ trên mặt bằng). Kéo chuột để nhìn quanh, W A S D hoặc phím mũi tên để đi, nhấp đúp vào sàn hay bậc thang để tới đó, bấm vào sơ đồ nhỏ góc phải để nhảy tới, PgUp/PgDn hoặc nút ▲▼ để đổi tầng. Người đi bị tường chặn, đi qua được ô cửa đi.
+- **Cánh cửa:** bỏ tick để ẩn cánh, nhìn xuyên giữa các phòng. Khi đi bộ cánh cửa tự ẩn.
+
 ## Giới hạn
 
 - Mái chỉ dựng đúng cho mái dốc đều trên đường bao chữ nhật (mái 4 mái). Mái chữ L, mái có nhiều cao độ, mái sảnh thấp chưa được dựng.

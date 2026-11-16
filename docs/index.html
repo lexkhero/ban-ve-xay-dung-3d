@@ -175,11 +175,35 @@
 
   <section class="viewer" aria-label="Xem 3D">
     <div id="stage" class="stage"></div>
-    <div class="toolbar" role="toolbar" aria-label="Góc nhìn">
+    <div id="labels" class="labels" aria-hidden="true"></div>
+    <div class="toolbar" role="toolbar" aria-label="Góc nhìn và công cụ">
       <button type="button" data-view="persp">Phối cảnh</button>
       <button type="button" data-view="top">Mặt bằng</button>
       <button type="button" data-view="front">Mặt trước</button>
       <span class="cutbox" hidden><label for="sel-cut" class="vh">Xem cắt</label><select id="sel-cut" aria-label="Xem cắt theo tầng"><option value="all">Toàn bộ</option></select></span>
+      <span id="navbar" class="navbar" hidden>
+        <button type="button" id="btn-walk" class="accent" aria-pressed="false">Đi bộ trong nhà</button>
+        <label for="sel-room" class="vh" id="lb-rooms">Vào phòng</label>
+        <select id="sel-room" aria-label="Vào phòng"></select>
+        <button type="button" id="btn-measure" aria-pressed="false">Đo khoảng cách</button>
+        <label class="tgl"><input type="checkbox" id="in-dims"> Kích thước cửa</label>
+        <label class="tgl"><input type="checkbox" id="in-rooms" checked> Tên phòng</label>
+        <label class="tgl"><input type="checkbox" id="in-leaves" checked> Cánh cửa</label>
+      </span>
+    </div>
+    <p id="navhint" class="navhint" hidden></p>
+    <aside id="info" class="info" aria-live="polite" hidden></aside>
+    <div id="walkhud" class="walkhud">
+      <div class="floorbox">
+        <button type="button" id="btn-down" aria-label="Xuống tầng dưới">▼</button>
+        <select id="sel-floor" aria-label="Tầng đang đứng"></select>
+        <button type="button" id="btn-up" aria-label="Lên tầng trên">▲</button>
+      </div>
+      <canvas id="minimap" class="minimap" aria-label="Sơ đồ tầng đang đứng, bấm để nhảy tới"></canvas>
+    </div>
+    <div id="pad" class="pad" aria-label="Phím di chuyển">
+      <button type="button" data-k="q" aria-label="Quay trái">↶</button><button type="button" data-k="w" aria-label="Tiến">▲</button><button type="button" data-k="e" aria-label="Quay phải">↷</button>
+      <button type="button" data-k="a" aria-label="Sang trái">◀</button><button type="button" data-k="s" aria-label="Lùi">▼</button><button type="button" data-k="d" aria-label="Sang phải">▶</button>
     </div>
     <div id="empty" class="empty">
       <p><strong>Chưa có bản vẽ.</strong><br>Chọn tệp ở bên trái, hoặc bấm “Dùng bản vẽ mẫu” để xem công cụ hoạt động.</p>
@@ -191,6 +215,7 @@
 <script src="core.js"></script>
 <script src="pdfvec.js"></script>
 <script src="dwgadapter.js"></script>
+<script src="nav.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

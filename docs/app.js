@@ -65,6 +65,8 @@
     var stage = $('stage');
     var renderer = new T.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.localClippingEnabled = true;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     stage.appendChild(renderer.domElement);
     var scene = new T.Scene();
@@ -77,20 +79,26 @@
 
     // Từ r155 cường độ đèn tính theo đơn vị vật lý: nhân π để giữ độ sáng như bản cũ
     var k = parseInt(T.REVISION, 10) >= 155 ? Math.PI : 1;
-    var hemi = new T.HemisphereLight(0xffffff, 0x8794a3, 0.8 * k); hemi.position.set(0, 0, 1); scene.add(hemi);
-    var sun = new T.DirectionalLight(0xffffff, 0.75 * k); sun.position.set(-12, -18, 26); scene.add(sun);
+    var hemi = new T.HemisphereLight(0xffffff, 0x9aa3ad, 0.85 * k); hemi.position.set(0, 0, 1); scene.add(hemi);
+    var sun = new T.DirectionalLight(0xfff6e8, 0.8 * k); sun.position.set(-12, -18, 26);
+    sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
+    scene.add(sun); scene.add(sun.target);
+    // Mặt đất nhận bóng đổ
+    var ground = new T.Mesh(new T.CircleGeometry(400, 48), new T.MeshStandardMaterial({ color: 0xaeb8a8, roughness: 1 }));
+    ground.receiveShadow = true; ground.position.z = -0.22; scene.add(ground);
     var grid = new T.GridHelper(120, 120, 0x8a96a4, 0xb9c2cc);
     grid.rotation.x = Math.PI / 2;
     grid.position.z = -0.2;
-    grid.material.transparent = true; grid.material.opacity = 0.45;
+    grid.material.transparent = true; grid.material.opacity = 0.3;
     scene.add(grid);
 
-    V = { renderer: renderer, scene: scene, camera: camera, controls: controls, grid: grid, model: null, overlay: null, bbox: [-5, -5, 0, 5, 5, 3],
+    V = { renderer: renderer, scene: scene, camera: camera, controls: controls, grid: grid, sun: sun, ground: ground, model: null, overlay: null, bbox: [-5, -5, 0, 5, 5, 3],
       cut: new T.Plane(new T.Vector3(0, 0, -1), 1e6) };
 
     function theme() {
       var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      renderer.setClearColor(dark ? 0x0f1419 : 0xe3e8ee, 1);
+      renderer.setClearColor(dark ? 0x10161c : 0xdfe7ef, 1);
+      ground.material.color.set(dark ? 0x2a3138 : 0xaeb8a8);
     }
     theme();
     if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', theme);
@@ -105,7 +113,8 @@
     if (window.ResizeObserver) new ResizeObserver(resize).observe(stage); else window.addEventListener('resize', resize);
     resize();
 
-    (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+    Nav.init(T, V);
+    (function loop(now) { requestAnimationFrame(loop); if (!Nav.isWalking()) controls.update(); Nav.frame(now || 0); renderer.render(scene, camera); })();
 
     document.querySelectorAll('[data-view]').forEach(function (b) {
       b.addEventListener('click', function () { setView(b.getAttribute('data-view')); });
@@ -117,6 +126,7 @@
     var b = V.bbox, cx = (b[0] + b[3]) / 2, cy = (b[1] + b[4]) / 2, cz = (b[2] + b[5]) / 2;
     var d = Math.max(b[3] - b[0], b[4] - b[1], b[5] - b[2], 4);
     V.controls.target.set(cx, cy, cz);
+    if (Nav.isWalking()) return;
     if (kind === 'top') V.camera.position.set(cx, cy - d * 0.02, cz + d * 1.9);
     else if (kind === 'front') V.camera.position.set(cx, cy - d * 2.0, cz + d * 0.15);
     else V.camera.position.set(cx + d * 0.9, cy - d * 1.25, cz + d * 0.95);
@@ -144,16 +154,19 @@
       geo.setAttribute('normal', new T.BufferAttribute(new Float32Array(g.nor), 3));
       geo.setIndex(new T.BufferAttribute(new Uint32Array(g.idx), 1));
       var glass = g.color[3] < 1;
+      var rough = { frame: 0.45, door: 0.6, glass: 0.08, slab: 0.8, stair: 0.75, roof: 0.85 }[g.key] || 0.92;
       var mat = new T.MeshStandardMaterial({
-        color: srgb(g.color), roughness: 0.9, metalness: 0,
+        color: srgb(g.color), roughness: rough, metalness: g.key === 'frame' ? 0.3 : 0,
         transparent: glass, opacity: glass ? g.color[3] : 1, side: glass ? T.DoubleSide : T.FrontSide, depthWrite: !glass,
         polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, clippingPlanes: [V.cut], clipShadows: true
       });
       if (g.key === 'roof') mat.side = T.DoubleSide;
       var mesh = new T.Mesh(geo, mat);
+      mesh.userData.key = g.key;
+      mesh.castShadow = !glass; mesh.receiveShadow = !glass;
       if (glass) mesh.renderOrder = 2;
       group.add(mesh);
-      if (!glass && g.idx.length < 400000) {
+      if (!glass && g.key !== 'frame' && g.key !== 'door' && g.idx.length < 400000) {
         group.add(new T.LineSegments(new T.EdgesGeometry(geo, 25), new T.LineBasicMaterial({ color: 0x27313c, transparent: true, opacity: 0.4, clippingPlanes: [V.cut] })));
       }
     });
@@ -185,8 +198,26 @@
       V.scene.add(V.overlay);
     }
     V.bbox = model.bbox;
+    // Đèn mặt trời và vùng đổ bóng bao vừa công trình
+    var bb = model.bbox, bcx = (bb[0] + bb[3]) / 2, bcy = (bb[1] + bb[4]) / 2, rad = Math.max(6, Math.hypot(bb[3] - bb[0], bb[4] - bb[1], bb[5] - bb[2]) * 0.6);
+    V.sun.target.position.set(bcx, bcy, (bb[2] + bb[5]) / 2);
+    V.sun.position.set(bcx - rad * 0.55, bcy - rad * 0.8, bb[5] + rad * 1.3);
+    var sc = V.sun.shadow.camera; sc.left = -rad; sc.right = rad; sc.top = rad; sc.bottom = -rad; sc.near = 0.5; sc.far = rad * 4 + bb[5]; sc.updateProjectionMatrix();
+    V.ground.position.set(bcx, bcy, Math.min(-0.22, bb[2] - 0.02));
     renderCutOptions(model);
+    Nav.setModel(model, levelNames());
     if (!keepView) setView('persp');
+  }
+
+  // Tên tầng lấy theo tiêu đề mặt bằng trong tệp CAD ("MẶT BẰNG TẦNG 2" -> "Tầng 2")
+  function levelNames() {
+    var c = S.cad;
+    if (!c || !c.floors.length) return [];
+    return c.floors.map(function (pi) {
+      var t = String((c.plans[pi] || {}).title || '').replace(/^\s*M[ẶA]T B[ẰA]NG\s*/i, '').trim();
+      if (!/T[ẦA]NG|[ÁA]P M[ÁA]I|L[ỬU]NG|H[ẦA]M/i.test(t) || t.length > 24) return '';
+      return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+    });
   }
 
   /* ---------------- Xem cắt theo tầng ---------------- */
@@ -204,7 +235,7 @@
     applyCut();
   }
   function applyCut() {
-    if (!V) return;
+    if (!V || Nav.isWalking()) return;
     var v = $('sel-cut').value;
     V.cut.constant = v === 'all' ? 1e6 : parseFloat(v);
   }
