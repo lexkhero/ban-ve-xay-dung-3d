@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dựng 3D từ bản vẽ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <h1>Dựng 3D từ bản vẽ</h1>
+  <p class="sub">DWG · DXF · PDF vector · ảnh scan · nhiều tầng</p>
+  <p id="libstatus" class="libstatus" aria-live="polite"></p>
+</header>
+
+<main class="layout">
+  <aside class="panel" aria-label="Thiết lập">
+
+    <section class="block" id="s-file">
+      <h2><span class="step">1</span>Tệp bản vẽ</h2>
+      <label class="drop" id="drop" for="file">
+        <input type="file" id="file" accept=".dwg,.dxf,.pdf,.png,.jpg,.jpeg,.webp,.bmp,.gif">
+        <strong>Chọn tệp hoặc kéo thả vào đây</strong>
+        <span>.dwg, .dxf, .pdf, .png, .jpg</span>
+      </label>
+      <div class="row-actions">
+        <button type="button" id="btn-sample" class="ghost">Dùng bản vẽ mẫu</button>
+        <span id="fileinfo" class="muted"></span>
+      </div>
+      <p id="msg" class="msg" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="block" id="s-scale" hidden>
+      <h2><span class="step">2</span>Đơn vị và tỉ lệ</h2>
+
+      <div class="field" data-for="dxf" id="cadplans" hidden>
+        <span class="flabel">Mặt bằng của từng tầng (từ tầng 1 lên) và cao độ sàn (m)</span>
+        <div id="floorlist" class="floorlist"></div>
+        <div class="row-actions">
+          <button type="button" id="btn-addfloor" class="ghost">Thêm tầng</button>
+          <button type="button" id="btn-wholecad" class="ghost">Dùng cả bản vẽ</button>
+        </div>
+        <canvas id="cadPrev" class="pdfprev" width="10" height="10" aria-label="Toàn cảnh bản vẽ, khung xanh là các mặt bằng đang chọn"></canvas>
+        <p class="hint">Khung xanh có nhãn T1, T2... là mặt bằng đang dùng cho từng tầng. Khung xám là các bản vẽ khác tìm thấy trong tệp. Cao độ đọc từ ghi chú ±0.000, +3.750... trên bản vẽ; với mái là cao độ đỉnh mái. Để trống thì xếp chồng theo cao tầng.</p>
+        <div class="field"><label for="in-eave">Mép mái cao hơn sàn tầng dưới mái (m)</label><input type="number" id="in-eave" value="0" min="-2" max="5" step="0.05"></div>
+      </div>
+      <div class="field" data-for="dxf">
+        <label for="sel-unit">Đơn vị của bản vẽ</label>
+        <select id="sel-unit">
+          <option value="auto">Tự nhận</option>
+          <option value="0.001">mm</option>
+          <option value="0.01">cm</option>
+          <option value="1">m</option>
+          <option value="0.0254">inch</option>
+        </select>
+        <p id="unit-note" class="hint"></p>
+      </div>
+
+      <div class="field" data-for="pdf">
+        <label for="in-pdfPages">Trang mặt bằng của từng tầng (từ tầng 1 lên)</label>
+        <input type="text" id="in-pdfPages" value="1" inputmode="numeric" spellcheck="false" placeholder="Ví dụ: 13, 14, 15">
+        <p class="hint mono" id="plans-note"></p>
+        <p class="hint" id="pdfpages-note">Mỗi trang là một tầng. Dùng khung xem trước bên dưới để tìm trang mặt bằng xây tường.</p>
+      </div>
+      <div class="field" data-for="pdf">
+        <div class="prevbar">
+          <button type="button" id="btn-prev" aria-label="Trang trước">◀</button>
+          <label for="in-viewPage" class="muted">Xem trang</label>
+          <input type="number" id="in-viewPage" value="1" min="1" step="1">
+          <span id="viewpage-total" class="muted mono"></span>
+          <button type="button" id="btn-next" aria-label="Trang sau">▶</button>
+          <button type="button" id="btn-addpage" class="ghost">Thêm làm tầng</button>
+        </div>
+        <canvas id="pdfPrev" class="pdfprev" width="10" height="10" aria-label="Xem trước nét vẽ của trang"></canvas>
+        <p class="hint legend"><span class="sw sw-wall"></span>Tường <span class="sw sw-col"></span>Cột <span class="sw sw-open"></span>Ký hiệu cửa <span class="sw sw-other"></span>Bỏ qua</p>
+      </div>
+      <div class="field" data-for="pdf">
+        <label for="sel-pdfScaleMode">Cách tính tỉ lệ</label>
+        <select id="sel-pdfScaleMode">
+          <option value="wall" selected>Theo bề dày tường chính</option>
+          <option value="paper">Theo tỉ lệ ghi trên bản vẽ</option>
+        </select>
+      </div>
+      <div class="field" data-for="pdf" id="f-wallRef">
+        <label for="in-wallRef">Bề dày tường chính (mm)</label>
+        <input type="number" id="in-wallRef" value="220" min="50" max="1000" step="5">
+        <p class="hint">Bản PDF thường được in thu nhỏ cho vừa khổ giấy nên tỉ lệ ghi trên bản vẽ không còn đúng. Công cụ đo bề dày tường xuất hiện nhiều nhất rồi quy ra tỉ lệ.</p>
+      </div>
+      <div class="field" data-for="pdf" id="f-pdfScale" hidden>
+        <label for="in-pdfScale">Tỉ lệ bản vẽ 1 :</label>
+        <input type="number" id="in-pdfScale" value="100" min="1" step="1">
+        <p class="hint">Chỉ đúng khi PDF được in đúng tỉ lệ (không chọn "Fit to paper").</p>
+      </div>
+      <p class="hint mono" id="pdfscale-note" data-for="pdf"></p>
+
+      <div class="field" data-for="img">
+        <label for="in-imgWidth">Chiều rộng thật của ảnh (m)</label>
+        <input type="number" id="in-imgWidth" value="12" min="0.5" step="0.5">
+        <p class="hint">Đo ngoài thực tế hoặc đọc từ kích thước ghi trên bản vẽ.</p>
+      </div>
+      <div class="field" data-for="img">
+        <label for="in-imgOpen">Độ dày tối thiểu của nét tường (px)</label>
+        <input type="range" id="in-imgOpen" min="0" max="8" step="1" value="2">
+        <output id="out-imgOpen" class="mono">2</output>
+      </div>
+      <div class="field" data-for="img">
+        <label for="in-imgThresh">Ngưỡng đen trắng</label>
+        <input type="range" id="in-imgThresh" min="10" max="245" step="1" value="128">
+        <label class="inline"><input type="checkbox" id="in-imgAuto" checked> Tự động <output id="out-imgThresh" class="mono"></output></label>
+        <label class="inline"><input type="checkbox" id="in-imgInvert"> Đảo màu (nền đen, nét trắng)</label>
+        <canvas id="maskPrev" class="maskprev" width="10" height="10" aria-label="Vùng được nhận là tường"></canvas>
+      </div>
+    </section>
+
+    <section class="block" id="s-layers" hidden data-for-block="dxf pdf">
+      <h2><span class="step">3</span>Vai trò của từng lớp (layer)</h2>
+      <p class="hint" id="layers-hint">Chọn lớp nào là tường, cửa đi, cửa sổ, cột. "Ký hiệu cửa" là nét mảnh vẽ cánh cửa, kính, dùng để phân biệt cửa đi với cửa sổ ở các khe tường. Lớp để "Bỏ qua" không vào mô hình.</p>
+      <div class="tablewrap"><table class="layers" id="layers"><thead><tr><th scope="col">Lớp</th><th scope="col">Số nét</th><th scope="col">Vai trò</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section class="block" id="s-params" hidden>
+      <h2><span class="step">4</span>Thông số công trình</h2>
+      <div class="grid2">
+        <div class="field"><label for="in-wallH">Cao tầng (m)</label><input type="number" id="in-wallH" value="3.0" min="1" max="20" step="0.1"></div>
+        <div class="field"><label for="in-floors">Số tầng</label><input type="number" id="in-floors" value="1" min="1" max="30" step="1"></div>
+        <div class="field"><label for="in-slabT">Dày sàn (m)</label><input type="number" id="in-slabT" value="0.15" min="0.05" max="0.6" step="0.01"></div>
+      </div>
+      <div class="field" data-for="dxf pdf">
+        <label for="in-mode">Cách vẽ tường</label>
+        <select id="in-mode">
+          <option value="double">Hai nét song song (thấy bề dày tường)</option>
+          <option value="center">Một nét tim tường</option>
+        </select>
+      </div>
+      <div class="grid2" data-for="dxf pdf">
+        <div class="field" id="f-tmin"><label for="in-tMin">Dày tường nhỏ nhất (m)</label><input type="number" id="in-tMin" value="0.07" min="0.02" max="1" step="0.01"></div>
+        <div class="field" id="f-tmax"><label for="in-tMax">Dày tường lớn nhất (m)</label><input type="number" id="in-tMax" value="0.45" min="0.1" max="2" step="0.01"></div>
+        <div class="field" id="f-ct" hidden><label for="in-centerT">Bề dày tường (m)</label><input type="number" id="in-centerT" value="0.2" min="0.05" max="1" step="0.01"></div>
+      </div>
+      <div class="grid2" data-for="dxf pdf">
+        <div class="field"><label for="in-doorH">Cao cửa đi (m)</label><input type="number" id="in-doorH" value="2.1" min="1" max="4" step="0.05"></div>
+        <div class="field"><label for="in-winSill">Cao bệ cửa sổ (m)</label><input type="number" id="in-winSill" value="0.9" min="0" max="3" step="0.05"></div>
+        <div class="field"><label for="in-winH">Cao cửa sổ (m)</label><input type="number" id="in-winH" value="1.2" min="0.2" max="3" step="0.05"></div>
+      </div>
+      <div class="checks">
+        <label class="inline"><input type="checkbox" id="in-autoSlab" checked> Tự tạo sàn dưới tầng 1</label>
+        <label class="inline"><input type="checkbox" id="in-roof"> Thêm mái bằng</label>
+        <label class="inline" data-for="dxf pdf"><input type="checkbox" id="in-glass" checked> Kính cho cửa sổ</label>
+        <label class="inline" data-for="dxf pdf"><input type="checkbox" id="in-infer" checked> Tự nhận khe hở trên tường là ô cửa</label>
+        <label class="inline" data-for="pdf dxf"><input type="checkbox" id="in-align" checked> Tự căn các tầng theo cột và tường</label>
+        <label class="inline" data-for="pdf dxf"><input type="checkbox" id="in-fence" checked> Tường tách rời ở tầng 1 là tường rào (cao 1,8 m)</label>
+        <label class="inline" data-for="pdf dxf"><input type="checkbox" id="in-stairs" checked> Dựng cầu thang từ nét bậc, khoét lỗ sàn</label>
+        <label class="inline" data-for="dxf pdf"><input type="checkbox" id="in-overlay" checked> Hiện nét bản vẽ 2D để đối chiếu</label>
+      </div>
+    </section>
+
+    <section class="block" id="s-export" hidden>
+      <h2><span class="step">5</span>Xuất mô hình</h2>
+      <div class="field">
+        <label for="sel-exunit">Đơn vị khi xuất OBJ, STL, DXF</label>
+        <select id="sel-exunit">
+          <option value="1000" selected>mm (dùng cho SketchUp, AutoCAD)</option>
+          <option value="100">cm</option>
+          <option value="1">m</option>
+        </select>
+      </div>
+      <div class="exports">
+        <button type="button" id="btn-dxf" class="primary">DXF 3D<small>AutoCAD, SketchUp</small></button>
+        <button type="button" id="btn-obj">OBJ<small>SketchUp, Blender</small></button>
+        <button type="button" id="btn-stl">STL<small>In 3D, SketchUp</small></button>
+        <button type="button" id="btn-glb">GLB<small>Blender, web, Windows 3D</small></button>
+      </div>
+    </section>
+  </aside>
+
+  <section class="viewer" aria-label="Xem 3D">
+    <div id="stage" class="stage"></div>
+    <div class="toolbar" role="toolbar" aria-label="Góc nhìn">
+      <button type="button" data-view="persp">Phối cảnh</button>
+      <button type="button" data-view="top">Mặt bằng</button>
+      <button type="button" data-view="front">Mặt trước</button>
+      <span class="cutbox" hidden><label for="sel-cut" class="vh">Xem cắt</label><select id="sel-cut" aria-label="Xem cắt theo tầng"><option value="all">Toàn bộ</option></select></span>
+    </div>
+    <div id="empty" class="empty">
+      <p><strong>Chưa có bản vẽ.</strong><br>Chọn tệp ở bên trái, hoặc bấm “Dùng bản vẽ mẫu” để xem công cụ hoạt động.</p>
+    </div>
+    <div id="stats" class="stats" aria-live="polite"></div>
+  </section>
+</main>
+
+<script src="core.js"></script>
+<script src="pdfvec.js"></script>
+<script src="dwgadapter.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
