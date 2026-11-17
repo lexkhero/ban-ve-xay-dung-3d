@@ -63,6 +63,13 @@ Bật **Hiện nét bản vẽ 2D** để đối chiếu: các ô cửa tự nh�
 - **Đi bộ trong nhà:** bấm nút, hoặc nhấp đúp vào sàn, hoặc chọn phòng ở danh sách "Vào phòng…" (tên phòng đọc từ chữ trên mặt bằng). Kéo chuột để nhìn quanh, W A S D hoặc phím mũi tên để đi, nhấp đúp vào sàn hay bậc thang để tới đó, bấm vào sơ đồ nhỏ góc phải để nhảy tới, PgUp/PgDn hoặc nút ▲▼ để đổi tầng. Người đi bị tường chặn, đi qua được ô cửa đi.
 - **Cánh cửa:** bỏ tick để ẩn cánh, nhìn xuyên giữa các phòng. Khi đi bộ cánh cửa tự ẩn.
 
+## Đặt lại khi kết quả sai
+
+- Mỗi lần nạp tệp, mọi thông số ở mục 2 và 4 tự trở về mặc định, nên cùng một tệp luôn cho cùng một kết quả.
+- Sau khi bạn chỉnh thông số, vai trò lớp hay mặt bằng, dưới mục 1 có dòng báo số thiết lập đã chỉnh.
+- **Dựng lại từ đầu:** đưa mọi thứ về như lúc mới nạp và đọc lại tệp đang mở.
+- **Bỏ bản vẽ:** xoá mô hình và bản vẽ đang mở.
+
 ## Giới hạn
 
 - Mái chỉ dựng đúng cho mái dốc đều trên đường bao chữ nhật (mái 4 mái). Mái chữ L, mái có nhiều cao độ, mái sảnh thấp chưa được dựng.

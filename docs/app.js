@@ -625,7 +625,7 @@
     return dwgLib;
   }
 
-  async function loadDWG(file) {
+  async function loadDWG(file, tok) {
     var buf = await file.arrayBuffer(), head = new TextDecoder('ascii').decode(new Uint8Array(buf, 0, 6));
     var ver = { AC1012: 'R13', AC1014: 'R14', AC1015: '2000', AC1018: '2004', AC1021: '2007', AC1024: '2010', AC1027: '2013', AC1032: '2018' }[head] || head;
     setMsg('Đang nạp thư viện đọc DWG (lần đầu mất vài giây)...', '');
@@ -651,6 +651,7 @@
       setMsg(['Không đọc được DWG ' + ver + ': ' + (e && e.message || e), 'Thử lưu bản vẽ thành DXF (Save As) rồi nạp lại.'], 'err');
       return;
     }
+    if (tok !== undefined && tok !== loadToken) return; // người dùng đã nạp tệp khác trong lúc đang đọc
     var conv = DwgAdapter.convert(db);
     if (!conv.ents.length) {
       setMsg(['Không đọc được nét vẽ nào trong tệp DWG ' + ver + '. Tệp có thể bị hỏng, được mã hoá, hoặc là phiên bản thư viện chưa hỗ trợ.',
@@ -867,13 +868,73 @@
     setMsg(['Ảnh chỉ cho ra khối tường thô. Nhập chiều rộng thật của ảnh để đúng tỉ lệ, rồi chỉnh độ dày nét và ngưỡng cho đến khi vùng tường ở ô xem trước là các mảng đen liền.'].concat(base), 'warn');
   }
 
+  /* ---------------- Đặt lại thông số, dựng lại từ đầu ---------------- */
+  // Các ô ở mục 2 và 4 (đơn vị, bề dày tường, cao cửa...) giữ nguyên giá trị giữa các lần nạp tệp sẽ làm
+  // cùng một tệp cho ra kết quả khác nhau. Vì vậy mỗi lần nạp tệp đều đưa các ô này về mặc định.
+  function paramFields() {
+    return Array.prototype.filter.call(document.querySelectorAll('.panel input, .panel select'), function (el) {
+      return el.id && el.type !== 'file' && !el.closest('#floorlist') && !el.closest('#layers');
+    });
+  }
+  function isDefault(el) {
+    if (el.type === 'checkbox' || el.type === 'radio') return el.checked === el.defaultChecked;
+    if (el.tagName === 'SELECT') {
+      var def = Array.prototype.filter.call(el.options, function (o) { return o.defaultSelected; })[0] || el.options[0];
+      return !def || el.value === def.value;
+    }
+    return el.value === el.defaultValue;
+  }
+  function resetParams() {
+    paramFields().forEach(function (el) {
+      if (el.type === 'checkbox' || el.type === 'radio') el.checked = el.defaultChecked;
+      else if (el.tagName === 'SELECT') {
+        var def = Array.prototype.filter.call(el.options, function (o) { return o.defaultSelected; })[0] || el.options[0];
+        if (def) el.value = def.value;
+      } else el.value = el.defaultValue;
+    });
+    if (V && V.overlay) V.overlay.visible = $('in-overlay').checked;
+    updateModeFields();
+    touched = {}; showTouched();
+  }
+  // Ghi nhận những thiết lập người dùng tự chỉnh sau khi nạp tệp, để biết kết quả đang khác bản gốc
+  var touched = {};
+  function showTouched() {
+    var n = Object.keys(touched).length, el = $('changed');
+    el.hidden = !n;
+    if (n) el.textContent = 'Bạn đã chỉnh ' + n + ' thiết lập so với lúc mới nạp tệp, nên kết quả khác bản gốc. Bấm "Dựng lại từ đầu" để trở về.';
+  }
+  var loadToken = 0;
+  async function reloadSource() {
+    var src = S.source;
+    if (!src) return;
+    if (src.sample) { resetParams(); S.name = 'ban-ve-mau'; loadDXFText(Core.sampleDXF()); S.source = src; }
+    else await handleFile(src.file);
+  }
+  function clearAll() {
+    loadToken++;
+    resetSource(); resetParams();
+    S.source = null; S.model = null; S.kind = null;
+    clearModel(); Nav.setModel(null);
+    document.querySelectorAll('[data-for]').forEach(function (el) { el.hidden = true; });
+    ['s-scale', 's-layers', 's-params', 's-export'].forEach(function (id) { if ($(id)) $(id).hidden = true; });
+    document.querySelector('.cutbox').hidden = true;
+    var stats = document.querySelector('.stats'); if (stats) stats.innerHTML = '';
+    $('fileinfo').textContent = ''; $('empty').hidden = false;
+    $('btn-reset').disabled = true; $('btn-clear').disabled = true;
+    setMsg('', '');
+  }
+
   async function handleFile(file) {
     if (!file) return;
     if (!V) { setMsg('Thư viện 3D chưa nạp được. Kiểm tra thư mục lib (cần lib\\three.bundle.js).', 'err'); return; }
+    var tok = ++loadToken;
     var ext = file.name.split('.').pop().toLowerCase();
+    resetParams();
+    S.source = { file: file };
+    $('btn-reset').disabled = false; $('btn-clear').disabled = false;
     S.name = file.name.replace(/\.[^.]+$/, '');
-    if (ext === 'dxf') loadDXFText(decodeText(await file.arrayBuffer()));
-    else if (ext === 'dwg') await loadDWG(file);
+    if (ext === 'dxf') { var txt = decodeText(await file.arrayBuffer()); if (tok === loadToken) loadDXFText(txt); }
+    else if (ext === 'dwg') await loadDWG(file, tok);
     else if (ext === 'pdf') await loadPDF(file);
     else if (/^(png|jpe?g|webp|bmp|gif)$/.test(ext)) await loadImage(file);
     else setMsg('Định dạng .' + ext + ' chưa được hỗ trợ.', 'err');
@@ -925,8 +986,20 @@
 
     $('btn-sample').addEventListener('click', function () {
       if (!V) { setMsg('Thư viện 3D chưa nạp được.', 'err'); return; }
+      loadToken++; resetParams();
+      S.source = { sample: true }; $('btn-reset').disabled = false; $('btn-clear').disabled = false;
       S.name = 'ban-ve-mau'; loadDXFText(Core.sampleDXF());
     });
+    $('btn-reset').addEventListener('click', function () { reloadSource(); });
+    document.querySelector('.panel').addEventListener('change', function (e) {
+      var el = e.target;
+      if (!el || el.type === 'file' || !S.source || el.id === 'in-overlay' || el.id === 'in-viewPage') return;
+      touched[el.id || el.name || (el.closest('[id]') || {}).id + ':' + Array.prototype.indexOf.call(document.querySelectorAll('.panel select, .panel input'), el)] = 1;
+      showTouched();
+    });
+    ['btn-addfloor', 'btn-wholecad'].forEach(function (id) { if ($(id)) $(id).addEventListener('click', function () { touched[id] = 1; showTouched(); }); });
+    $('btn-clear').addEventListener('click', clearAll);
+    resetParams(); // trình duyệt có thể tự điền lại giá trị cũ của các ô sau khi tải lại trang
 
     ['in-wallH', 'in-floors', 'in-slabT', 'in-tMin', 'in-tMax', 'in-centerT', 'in-doorH', 'in-winSill', 'in-winH',
      'in-autoSlab', 'in-roof', 'in-glass', 'in-infer', 'in-align', 'in-fence', 'in-stairs', 'in-eave', 'sel-unit', 'in-pdfScale', 'in-wallRef',
