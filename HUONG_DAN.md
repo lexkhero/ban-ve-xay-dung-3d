@@ -55,6 +55,20 @@ Bật **Hiện nét bản vẽ 2D** để đối chiếu: các ô cửa tự nh�
 ## Ảnh
 - **Ảnh scan, PDF scan**: chỉ dựng khối tường thô theo vùng đen đậm, không có cửa. Nhập chiều rộng thật của ảnh để đúng tỉ lệ.
 
+## Bản vẽ nhiều tờ: công cụ tự nhận tầng thế nào
+
+Với tệp CAD đặt nhiều tờ trong Model (hồ sơ thiết kế, hồ sơ thi công), công cụ tự tìm mặt bằng của từng tầng:
+
+- **Chữ tiếng Việt kiểu cũ:** chữ dùng font .VnTime/.VnArial (TCVN3, ABC) hay VNI-Times được đổi sang Unicode, kể cả khi một tệp trộn nhiều kiểu.
+- **Khung tờ giấy:** khung có tỉ lệ khổ giấy và lặp lại cùng một khổ được nhận là tờ. Nét khung, đường kẻ khung tên và phần in sẵn lặp lại ở mọi tờ được bỏ qua, kể cả khi chúng nằm trên lớp tường.
+- **Tên tầng** đọc từ tiêu đề "MẶT BẰNG ...": tầng 1, 2..., tầng trệt, lầu 1 (= tầng 2), tầng lửng, tầng thượng/tum, tầng hầm, áp mái, mái, tầng điển hình "tầng 2+3", "tầng 2 đến 5". Nhà một tầng chỉ có tiêu đề "MẶT BẰNG" được lấy làm tầng 1.
+- **Bỏ qua** mặt bằng điện, nước, kết cấu (dầm, thép, móng, giằng, cột), chi tiết (thang, vệ sinh, bể) và tổng thể.
+- **Mỗi tầng chọn một tờ:** ưu tiên tờ định vị cửa, rồi tường xây, kích thước, mặt bằng kiến trúc, cuối cùng là lát sàn, trần, lanh tô. Tờ có kích thước nhà lệch hẳn so với các tầng khác bị đẩy xuống.
+- **Cao độ:** chọn cả dãy cùng lúc cho hợp lý (tầng thường cách nhau 2,6–6,5 m, tầng lửng từ 1 m). Ưu tiên chữ cao độ trong chính mặt bằng, rồi cao độ trên mặt cắt, mặt đứng.
+- **Mái:** mặt bằng mái có vùng tô mái (lớp vai trò "Mái") thì dựng mái dốc; không có thì dựng mái bằng bê tông, tường trên mái là lan can 1,1 m.
+
+Chọn sai thì đổi ở mục 2. Muốn trở về như lúc mới nạp thì bấm "Dựng lại từ đầu".
+
 ## Xem và tương tác trên mô hình 3D
 
 - **Xem kích thước:** bấm vào cửa, tường, cột, cầu thang, sàn hoặc mái. Bảng bên phải ghi rộng, cao, bệ cửa, cao độ; cấu kiện được viền đỏ kèm nhãn kích thước. Bảng cũng ghi rõ chiều cao lấy từ ký hiệu trên bản vẽ (D1, S4...) hay là giá trị mặc định ở mục 4.
@@ -69,6 +83,17 @@ Bật **Hiện nét bản vẽ 2D** để đối chiếu: các ô cửa tự nh�
 - Sau khi bạn chỉnh thông số, vai trò lớp hay mặt bằng, dưới mục 1 có dòng báo số thiết lập đã chỉnh.
 - **Dựng lại từ đầu:** đưa mọi thứ về như lúc mới nạp và đọc lại tệp đang mở.
 - **Bỏ bản vẽ:** xoá mô hình và bản vẽ đang mở.
+
+## Thống kê truy cập, lưu bản vẽ, báo lỗi
+
+Khi `config.js` có địa chỉ máy chủ (Google Apps Script, cài theo `server/HUONG_DAN_MAY_CHU.md`):
+
+- Mỗi lượt vào trang được ghi lại. Trang tính `ThongKe` tự tính tổng lượt, số khách, lượt theo ngày.
+- Bản vẽ người dùng mở được lưu vào Google Drive nếu chưa có. Tệp nhận diện bằng mã SHA-256, nên mở lại không lưu trùng mà chỉ tăng số lần mở. Kèm theo là tóm tắt kết quả: các tầng đã chọn, cao độ, số tường, cửa, cảnh báo. Trang có một dòng thông báo cho người dùng biết bản vẽ được lưu.
+- Nút **Báo lỗi bản vẽ** trên khung 3D: người dùng chọn loại lỗi, mô tả, có thể để lại liên hệ và gửi kèm ảnh khung 3D. Bản vẽ được đánh dấu `LỖI` trong trang tính.
+- `TAI_BAN_VE_LOI.bat` tải các bản vẽ bị báo lỗi về `test\ban_ve_loi\` để kiểm thử, kèm nội dung báo lỗi.
+
+`apiUrl` để trống thì trang không gửi gì ra ngoài.
 
 ## Giới hạn
 

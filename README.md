@@ -4,7 +4,7 @@ Công cụ chạy trên trình duyệt: nạp bản vẽ mặt bằng DWG, DXF, 
 
 Dùng trực tuyến: https://lexkhero.github.io/ban-ve-xay-dung-3d/
 
-Bản vẽ được xử lý ngay trong trình duyệt, không gửi lên máy chủ nào.
+Bản vẽ được dựng ngay trong trình duyệt. Bản vẽ người dùng mở được lưu lại trên hệ thống của tác giả để kiểm tra và cải thiện công cụ.
 
 - Mã của trang: thư mục `docs/`. Hướng dẫn chi tiết: `HUONG_DAN.md`.
 - Giấy phép và thư viện bên thứ ba: `NOTICE.md`.

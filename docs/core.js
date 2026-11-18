@@ -34,6 +34,7 @@
     fence: true,         // tường tách rời khỏi nhà ở tầng 1 coi là tường rào
     fenceH: 1.8,
     eaveRise: 0,         // mép mái cao hơn sàn tầng ngay dưới mái (m)
+    parapetH: 1.1,       // lan can, tường chắn mái trên mái bằng (m)
     stairs: true,
     roles: {}
   };
@@ -270,9 +271,12 @@
     return m;
   }
 
+  var VN = typeof VnEnc !== 'undefined' ? VnEnc : (typeof require === 'function' ? require('./vnenc.js') : null);
   function cleanMText(s) {
-    return String(s || '').replace(/\\P/g, ' ').replace(/\\[A-Za-z][^;\\{}]*;/g, '').replace(/\\[LlOoKk]/g, '')
-      .replace(/[{}]/g, '').replace(/%%[cC]/g, 'Ø').replace(/%%[dD]/g, '°').replace(/\s+/g, ' ').trim();
+    s = String(s || '');
+    if (VN) s = VN.fix(s); // chữ TCVN3 / VNI -> Unicode
+    return s.replace(/\\P/g, ' ').replace(/\\[A-Za-z][^;\\{}]*;/g, '').replace(/\\[LlOoKk]/g, '')
+      .replace(/[{}]/g, '').replace(/%%[uUoOkK]/g, '').replace(/%%[cC]/g, 'Ø').replace(/%%[dD]/g, '°').replace(/%%[pP]/g, '±').replace(/\s+/g, ' ').trim();
   }
 
   function parseDXF(text) {
@@ -331,7 +335,7 @@
   /* ------------------------------------------------------------------ */
   function guessRole(name) {
     // bỏ tiền tố số thứ tự ("1 - ") và hậu tố nhóm ("GR", mã màu "7. WW") thường gặp trong bản vẽ Việt Nam
-    var s = stripAccents(name).toLowerCase().replace(/^\s*\d+\s*-\s*/, '').replace(/[_]/g, ' ').trim();
+    var s = stripAccents(VN ? VN.fix(name) : name).toLowerCase().replace(/^\s*\d+\s*-\s*/, '').replace(/[_]/g, ' ').trim();
     if (/(hatch.?mai|(^|[^a-z])mai ?(ngoi|ton|doc)|(^|[^a-z])roof)/.test(s) && !/ap ?mai/.test(s)) return 'roof';
     if (/(^|[^a-z])(dim|text|txt|hatch|hacth|grid|truc|defpoints|kich ?thuoc|chu|ghi ?chu|note|furn|noi ?that|do ?dung|anno|tieu ?de|khung|title|viewport|vport|axis|center|tim|ky ?hieu|ki ?hieu|thiet ?bi|leader|cay|san ?vuon|dien|den|ong|chi ?gioi|ranh ?gioi|khuat|thay|level)([^a-z]|$)/.test(s)) return 'ignore';
     if (/(net[ -]?cat|^cat).*(be ?tong|btct|cot)|be ?tong.*cat|(^|[^a-z])(cot|column|col)([^a-z]|$)/.test(s)) return 'column';
@@ -1506,6 +1510,9 @@
       for (i = 1; i < cfg.floors; i++) { preps.push(prepLevel(levels[0].ents, cfg, levels[0].texts)); levels = levels.concat([{ ents: levels[0].ents, texts: levels[0].texts, repeat: true }]); }
     }
     var kinds = levels.map(function (lv) { return lv.kind === 'roof' ? 'roof' : 'floor'; });
+    // Mặt bằng mái không có vùng tô mái (ngói, tôn): coi là mái bằng bê tông. Tầng dưới cao tới sàn mái,
+    // sàn mái đổ ở cao độ của mặt bằng mái, tường trên mái là lan can.
+    kinds.forEach(function (k, i) { if (k === 'roof' && !preps[i].roofFaces.length) kinds[i] = 'flat'; });
     var align = [{ dx: 0, dy: 0, method: 'gốc' }];
     for (i = 1; i < preps.length; i++) {
       var lv = levels[i], a;
@@ -1538,6 +1545,7 @@
     if (given) { var b0 = z0[0]; for (i = 0; i < n; i++) z0[i] -= b0; ridgeZ -= b0; }
     var heights = z0.map(function (z, li) {
       if (kinds[li] === 'roof') return 0;
+      if (kinds[li] === 'flat') return cfg.parapetH;
       if (li + 1 < n && kinds[li + 1] !== 'roof' && z0[li + 1] - z > 0.5) return z0[li + 1] - z;
       if (li + 1 < n && kinds[li + 1] === 'roof' && ridgeZ - z > 0.5) return ridgeZ - z;
       return H;
@@ -1550,6 +1558,7 @@
       rm = roofModel(preps[roofIdx].roofFaces, z0[roofIdx], ridgeZ, topHullPts.length >= 3 ? convexHull(topHullPts) : null, cfg.overhang);
       if (!preps[roofIdx].roofFaces.length) warn.push('Mặt bằng mái không có vùng tô lớp Mái; mái được dựng theo bao tường tầng trên cùng, chìa ra ' + cfg.overhang + ' m.');
     }
+    if (kinds.indexOf('flat') >= 0) warn.push('Mặt bằng mái không có vùng tô mái ngói, mái tôn nên được dựng là mái bằng: sàn mái ở cao độ +' + z0[kinds.indexOf('flat')].toFixed(2) + ' m, tường trên mái là lan can cao ' + cfg.parapetH + ' m. Nếu là mái dốc, đặt vai trò "Mái" cho lớp tô mái ở mục 3.');
 
     var G = newGroups(), overlay = [], items = [], solids = preps.map(function () { return []; });
     var hulls = preps.map(function (L) { return L.hullPts.length >= 3 ? convexHull(L.hullPts) : null; });

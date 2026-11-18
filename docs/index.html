@@ -29,6 +29,7 @@
         <button type="button" id="btn-clear" class="ghost" disabled title="Bỏ bản vẽ đang mở và xoá mô hình">Bỏ bản vẽ</button>
       </div>
       <p id="fileinfo" class="muted fileinfo"></p>
+      <p id="syncinfo" class="muted syncinfo" aria-live="polite"></p>
       <p id="changed" class="muted changed" hidden></p>
       <p id="msg" class="msg" role="status" aria-live="polite"></p>
     </section>
@@ -184,6 +185,7 @@
       <button type="button" data-view="top">Mặt bằng</button>
       <button type="button" data-view="front">Mặt trước</button>
       <span class="cutbox" hidden><label for="sel-cut" class="vh">Xem cắt</label><select autocomplete="off" id="sel-cut" aria-label="Xem cắt theo tầng"><option value="all">Toàn bộ</option></select></span>
+      <button type="button" id="btn-report" class="report" hidden>Báo lỗi bản vẽ</button>
       <span id="navbar" class="navbar" hidden>
         <button type="button" id="btn-walk" class="accent" aria-pressed="false">Đi bộ trong nhà</button>
         <label for="sel-room" class="vh" id="lb-rooms">Vào phòng</label>
@@ -215,6 +217,36 @@
   </section>
 </main>
 
+<dialog id="dlg-report" class="dlg" aria-labelledby="rep-title">
+  <form id="form-report" method="dialog">
+    <h2 id="rep-title">Báo lỗi bản vẽ</h2>
+    <p id="rep-file" class="muted"></p>
+    <fieldset>
+      <legend>Sai ở đâu?</legend>
+      <label><input type="checkbox" name="kind" value="Không dựng được"> Không dựng được, báo lỗi khi mở</label>
+      <label><input type="checkbox" name="kind" value="Sai mặt bằng hoặc thứ tự tầng"> Chọn sai mặt bằng hoặc thứ tự tầng</label>
+      <label><input type="checkbox" name="kind" value="Sai cao độ"> Sai cao độ, chiều cao tầng</label>
+      <label><input type="checkbox" name="kind" value="Sai tường"> Thiếu, thừa hoặc lệch tường</label>
+      <label><input type="checkbox" name="kind" value="Sai cửa"> Cửa sai vị trí, kích thước hoặc thiếu cửa</label>
+      <label><input type="checkbox" name="kind" value="Sai cầu thang"> Cầu thang sai hoặc thiếu</label>
+      <label><input type="checkbox" name="kind" value="Sai mái"> Mái sai</label>
+      <label><input type="checkbox" name="kind" value="Khác"> Lỗi khác</label>
+    </fieldset>
+    <label class="field" for="rep-text">Mô tả thêm (không bắt buộc)</label>
+    <textarea id="rep-text" rows="4" maxlength="3000" placeholder="Ví dụ: tầng 2 lấy nhầm mặt bằng điện; cửa chính phải rộng 3,2 m"></textarea>
+    <label class="field" for="rep-contact">Liên hệ để hỏi thêm (không bắt buộc)</label>
+    <input id="rep-contact" type="text" maxlength="200" autocomplete="off" placeholder="Email hoặc số điện thoại">
+    <label class="chk"><input type="checkbox" id="rep-shot" checked> Gửi kèm ảnh khung 3D đang xem</label>
+    <p id="rep-status" class="msg" role="status" aria-live="polite"></p>
+    <div class="row-actions dlg-actions">
+      <button type="button" id="rep-cancel" class="ghost">Đóng</button>
+      <button type="submit" id="rep-send" class="primary">Gửi báo lỗi</button>
+    </div>
+  </form>
+</dialog>
+<script src="config.js"></script>
+<script src="telemetry.js"></script>
+<script src="vnenc.js"></script>
 <script src="core.js"></script>
 <script src="pdfvec.js"></script>
 <script src="dwgadapter.js"></script>

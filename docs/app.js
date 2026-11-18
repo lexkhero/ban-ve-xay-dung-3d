@@ -213,11 +213,7 @@
   function levelNames() {
     var c = S.cad;
     if (!c || !c.floors.length) return [];
-    return c.floors.map(function (pi) {
-      var t = String((c.plans[pi] || {}).title || '').replace(/^\s*M[ẶA]T B[ẰA]NG\s*/i, '').trim();
-      if (!/T[ẦA]NG|[ÁA]P M[ÁA]I|L[ỬU]NG|H[ẦA]M/i.test(t) || t.length > 24) return '';
-      return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
-    });
+    return Array.prototype.map.call(document.querySelectorAll('#floorlist .floorrow label'), function (l) { return l.textContent; });
   }
 
   /* ---------------- Xem cắt theo tầng ---------------- */
@@ -706,7 +702,11 @@
       var row = document.createElement('div'); row.className = 'floorrow';
       var kind = DwgAdapter.planKind(c.plans[pi]), attic = /[áa]p\s*m[áa]i/i.test(c.plans[pi].title || '');
       var lab = document.createElement('label'); lab.htmlFor = 'floor-' + fi;
-      lab.textContent = kind === 'roof' ? 'Mái' : attic ? 'Áp mái' : 'Tầng ' + (++nFloor);
+      // tên tầng đọc từ tiêu đề (tầng lửng, tầng thượng...); không đọc được thì đánh số
+      var auto = DwgAdapter.levelLabel(c.plans[pi].title), same = c.floors.slice(0, fi).filter(function (q) { return q === pi; }).length;
+      if (auto && /–/.test(auto)) { var r = DwgAdapter.floorKeys(c.plans[pi].title); auto = 'Tầng ' + r[Math.min(same, r.length - 1)]; }
+      lab.textContent = auto || (kind === 'roof' ? 'Mái' : attic ? 'Áp mái' : 'Tầng ' + (nFloor + 1));
+      if (!auto && kind !== 'roof' && !attic) nFloor++; else if (/^Tầng \d/.test(auto)) nFloor = parseInt(auto.slice(5), 10);
       var sel = document.createElement('select'); sel.id = 'floor-' + fi;
       c.plans.forEach(function (p, i) { var o = document.createElement('option'); o.value = i; o.textContent = planLabel(p, i); sel.appendChild(o); });
       sel.value = pi;
@@ -908,10 +908,11 @@
     var src = S.source;
     if (!src) return;
     if (src.sample) { resetParams(); S.name = 'ban-ve-mau'; loadDXFText(Core.sampleDXF()); S.source = src; }
-    else await handleFile(src.file);
+    else await handleFile(src.file, true);
   }
   function clearAll() {
     loadToken++;
+    $('btn-report').hidden = true;
     resetSource(); resetParams();
     S.source = null; S.model = null; S.kind = null;
     clearModel(); Nav.setModel(null);
@@ -924,7 +925,8 @@
     setMsg('', '');
   }
 
-  async function handleFile(file) {
+  // reload = bấm "Dựng lại từ đầu": không tính là một lần mở bản vẽ mới
+  async function handleFile(file, reload) {
     if (!file) return;
     if (!V) { setMsg('Thư viện 3D chưa nạp được. Kiểm tra thư mục lib (cần lib\\three.bundle.js).', 'err'); return; }
     var tok = ++loadToken;
@@ -938,6 +940,67 @@
     else if (ext === 'pdf') await loadPDF(file);
     else if (/^(png|jpe?g|webp|bmp|gif)$/.test(ext)) await loadImage(file);
     else setMsg('Định dạng .' + ext + ' chưa được hỗ trợ.', 'err');
+    if (tok !== loadToken) return;
+    $('btn-report').hidden = !Tele.enabled();
+    if (!reload) Tele.fileOpened(file, ext, resultSummary(), $('msg').classList.contains('err') || !S.model ? 'err' : 'ok');
+  }
+
+  /* ---------------- Tóm tắt kết quả (gửi kèm khi mở bản vẽ và khi báo lỗi) ---------------- */
+  function resultSummary() {
+    var o = { kind: S.kind || '', file: $('fileinfo').textContent, msg: $('msg').textContent.slice(0, 1500) };
+    if (S.cad && S.cad.floors.length) {
+      o.floors = Array.prototype.map.call(document.querySelectorAll('#floorlist .floorrow'), function (row) {
+        var sel = row.querySelector('select'), z = row.querySelector('.zin'), lab = row.querySelector('label');
+        return (lab ? lab.textContent : '') + ': ' + (sel ? sel.options[sel.selectedIndex].text : '') + (z && z.value ? ' z=' + z.value : '');
+      });
+    }
+    var st = document.querySelector('.stats');
+    if (st) o.stats = st.innerText.replace(/\s+/g, ' ').trim();
+    var roles = {};
+    Object.keys(S.roles || {}).forEach(function (k) { if (S.roles[k] !== 'ignore' && S.layers && S.layers[k]) roles[k] = S.roles[k]; });
+    o.roles = roles;
+    var changed = {};
+    paramFields().forEach(function (el) { if (!isDefault(el)) changed[el.id] = el.type === 'checkbox' ? el.checked : el.value; });
+    o.changed = changed;
+    o.touched = Object.keys(touched);
+    return o;
+  }
+
+  /* ---------------- Báo lỗi ---------------- */
+  function shot() {
+    try {
+      var c = V.renderer.domElement, k = Math.min(1, 1280 / c.width), t = document.createElement('canvas');
+      t.width = Math.round(c.width * k); t.height = Math.round(c.height * k);
+      var g = t.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, t.width, t.height); g.drawImage(c, 0, 0, t.width, t.height);
+      return t.toDataURL('image/jpeg', 0.72);
+    } catch (e) { return ''; }
+  }
+  function openReport() {
+    var cur = Tele.current(), dlg = $('dlg-report');
+    if (!cur) return;
+    $('rep-file').textContent = cur.name + ' · ' + (cur.size / 1048576).toFixed(1).replace('.', ',') + ' MB';
+    $('rep-status').textContent = ''; $('rep-status').className = 'msg';
+    $('rep-send').disabled = false;
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+  }
+  function sendReport(e) {
+    e.preventDefault();
+    var kinds = Array.prototype.filter.call(document.querySelectorAll('#form-report input[name=kind]'), function (c) { return c.checked; }).map(function (c) { return c.value; });
+    var text = $('rep-text').value.trim();
+    if (!kinds.length && !text) { $('rep-status').textContent = 'Chọn ít nhất một mục hoặc mô tả lỗi.'; $('rep-status').className = 'msg warn'; return; }
+    $('rep-send').disabled = true;
+    $('rep-status').textContent = 'Đang gửi...'; $('rep-status').className = 'msg';
+    Tele.report({ kinds: kinds, text: text, contact: $('rep-contact').value.trim(), summary: resultSummary(), shot: $('rep-shot').checked ? shot() : '' })
+      .then(function () {
+        $('rep-status').textContent = 'Đã gửi báo lỗi. Cảm ơn bạn, bản vẽ này sẽ được dùng để sửa công cụ.'; $('rep-status').className = 'msg ok';
+        document.querySelectorAll('#form-report input[name=kind]').forEach(function (c) { c.checked = false; });
+        $('rep-text').value = '';
+        setTimeout(function () { var d = $('dlg-report'); if (d.open) d.close ? d.close() : d.removeAttribute('open'); }, 1800);
+      })
+      .catch(function (err) {
+        $('rep-status').textContent = 'Chưa gửi được: ' + (err && err.message || err) + '. Kiểm tra mạng rồi bấm gửi lại.'; $('rep-status').className = 'msg err';
+        $('rep-send').disabled = false;
+      });
   }
 
   /* ---------------- Xuất file ---------------- */
@@ -987,6 +1050,7 @@
     $('btn-sample').addEventListener('click', function () {
       if (!V) { setMsg('Thư viện 3D chưa nạp được.', 'err'); return; }
       loadToken++; resetParams();
+      $('btn-report').hidden = true;
       S.source = { sample: true }; $('btn-reset').disabled = false; $('btn-clear').disabled = false;
       S.name = 'ban-ve-mau'; loadDXFText(Core.sampleDXF());
     });
@@ -1000,6 +1064,12 @@
     ['btn-addfloor', 'btn-wholecad'].forEach(function (id) { if ($(id)) $(id).addEventListener('click', function () { touched[id] = 1; showTouched(); }); });
     $('btn-clear').addEventListener('click', clearAll);
     resetParams(); // trình duyệt có thể tự điền lại giá trị cũ của các ô sau khi tải lại trang
+    // Thống kê, lưu bản vẽ, báo lỗi (chỉ khi đã cấu hình máy chủ trong config.js)
+    if (Tele.enabled()) Tele.visit();
+    Tele.onStatus = function (t) { $('syncinfo').textContent = t; };
+    $('btn-report').addEventListener('click', openReport);
+    $('form-report').addEventListener('submit', sendReport);
+    $('rep-cancel').addEventListener('click', function () { var d = $('dlg-report'); if (d.close) d.close(); else d.removeAttribute('open'); });
 
     ['in-wallH', 'in-floors', 'in-slabT', 'in-tMin', 'in-tMax', 'in-centerT', 'in-doorH', 'in-winSill', 'in-winH',
      'in-autoSlab', 'in-roof', 'in-glass', 'in-infer', 'in-align', 'in-fence', 'in-stairs', 'in-eave', 'sel-unit', 'in-pdfScale', 'in-wallRef',

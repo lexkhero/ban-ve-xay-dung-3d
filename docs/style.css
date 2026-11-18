@@ -204,3 +204,18 @@ input[type="text"] {
 
 .fileinfo { margin: 6px 0 0; }
 .changed { margin: 4px 0 0; font-size: 12px; color: var(--warn, #b26a00); }
+
+/* Lưu bản vẽ, báo lỗi */
+.syncinfo:empty { display: none; }
+.syncinfo, .storenote { margin: 4px 0 0; font-size: 12px; }
+.toolbar .report { color: #b3261e; border-color: rgba(179, 38, 30, 0.45); }
+.dlg { width: min(520px, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; background: var(--panel); color: inherit; box-shadow: 0 12px 40px rgba(0,0,0,0.25); }
+.dlg::backdrop { background: rgba(10, 14, 18, 0.45); }
+.dlg h2 { margin: 0 0 4px; font-size: 18px; }
+.dlg fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 10px 0; padding: 8px 12px 10px; display: grid; gap: 5px; }
+.dlg legend { padding: 0 4px; font-weight: 600; }
+.dlg fieldset label, .dlg .chk { display: flex; gap: 8px; align-items: center; font-size: 14px; cursor: pointer; }
+.dlg .field { display: block; margin: 10px 0 4px; font-weight: 600; font-size: 14px; }
+.dlg textarea, .dlg input[type=text] { width: 100%; box-sizing: border-box; font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg, #fff); color: inherit; }
+.dlg .chk { margin-top: 10px; }
+.dlg-actions { justify-content: flex-end; margin-top: 12px; }
